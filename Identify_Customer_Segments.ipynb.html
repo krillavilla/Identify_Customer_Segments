@@ -1,0 +1,612 @@
+<html>
+<head>
+<title>Identify_Customer_Segments.ipynb</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #637777; font-style: italic;}
+.s1 { color: #d6deeb;}
+.s2 { color: #c792ea; font-style: italic;}
+.s3 { color: #c792ea;}
+.s4 { color: #d6deeb;}
+.s5 { color: #ecc48d;}
+.s6 { color: #5f7e97;}
+.s7 { color: #f78c6c;}
+.ls0 { height: 1px; border-width: 0; color: #084d81; background-color:#084d81}
+</style>
+</head>
+<body bgcolor="#011627">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Identify_Customer_Segments.ipynb</font>
+</center></td></tr></table>
+<pre><span class="s0">#%% md 
+</span><span class="s1"># Project: Identify Customer Segments 
+ 
+In this project, you will apply unsupervised learning techniques to identify segments of the population that form the core customer base for a mail-order sales company in Germany. These segments can then be used to direct marketing campaigns towards audiences that will have the highest expected rate of returns. The data that you will use has been provided by our partners at Bertelsmann Arvato Analytics, and represents a real-life data science task. 
+ 
+This notebook will help you complete this task by providing a framework within which you will perform your analysis steps. In each step of the project, you will see some text describing the subtask that you will perform, followed by one or more code cells for you to complete your work. **Feel free to add additional code and markdown cells as you go along so that you can explore everything in precise chunks.** The code cells provided in the base template will outline only the major tasks, and will usually not be enough to cover all of the minor tasks that comprise it. 
+ 
+It should be noted that while there will be precise guidelines on how you should handle certain tasks in the project, there will also be places where an exact specification is not provided. **There will be times in the project where you will need to make and justify your own decisions on how to treat the data.** These are places where there may not be only one way to handle the data. In real-life tasks, there may be many valid ways to approach an analysis task. One of the most important things you can do is clearly document your approach so that other scientists can understand the decisions you've made. 
+ 
+At the end of most sections, there will be a Markdown cell labeled **Discussion**. In these cells, you will report your findings for the completed section, as well as document the decisions that you made in your approach to each subtask. **Your project will be evaluated not just on the code used to complete the tasks outlined, but also your communication about your observations and conclusions at each stage.** <hr class="ls0"></span><span class="s0">#%% 
+# import libraries here; add more as necessary</span>
+<span class="s2">import </span><span class="s1">numpy </span><span class="s2">as </span><span class="s1">np</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s2">import </span><span class="s1">matplotlib</span><span class="s3">.</span><span class="s1">pyplot </span><span class="s2">as </span><span class="s1">plt</span>
+<span class="s2">import </span><span class="s1">seaborn </span><span class="s2">as </span><span class="s1">sns</span>
+
+<span class="s2">import </span><span class="s1">sklearn</span>
+<span class="s2">from </span><span class="s1">sklearn</span><span class="s3">.</span><span class="s1">metrics </span><span class="s2">import </span><span class="s1">explained_variance_score</span>
+<span class="s2">from </span><span class="s1">sklearn</span><span class="s3">.</span><span class="s1">preprocessing </span><span class="s2">import </span><span class="s1">OneHotEncoder</span>
+<span class="s2">from </span><span class="s1">sklearn</span><span class="s3">.</span><span class="s1">impute </span><span class="s2">import </span><span class="s1">SimpleImputer</span>
+
+<span class="s0"># magic word for producing visualizations in notebook</span>
+<span class="s3">%</span><span class="s1">matplotlib inline</span>
+
+<span class="s1">pd</span><span class="s3">.</span><span class="s1">options</span><span class="s3">.</span><span class="s1">display</span><span class="s3">.</span><span class="s1">max_rows </span><span class="s3">= </span><span class="s2">None</span>
+<span class="s1">pd</span><span class="s3">.</span><span class="s1">options</span><span class="s3">.</span><span class="s1">display</span><span class="s3">.</span><span class="s1">max_columns </span><span class="s3">= </span><span class="s2">None</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Step 0: Load the Data 
+ 
+There are four files associated with this project (not including this one): 
+ 
+- `Udacity_AZDIAS_Subset.csv`: Demographics data for the general population of Germany; 891211 persons (rows) x 85 features (columns). 
+- `Udacity_CUSTOMERS_Subset.csv`: Demographics data for customers of a mail-order company; 191652 persons (rows) x 85 features (columns). 
+- `Data_Dictionary.md`: Detailed information file about the features in the provided datasets. 
+- `AZDIAS_Feature_Summary.csv`: Summary of feature attributes for demographics data; 85 features (rows) x 4 columns 
+ 
+Each row of the demographics files represents a single person, but also includes information outside of individuals, including information about their household, building, and neighborhood. You will use this information to cluster the general population into groups with similar demographic properties. Then, you will see how the people in the customers dataset fit into those created clusters. The hope here is that certain clusters are over-represented in the customers data, as compared to the general population; those over-represented clusters will be assumed to be part of the core userbase. This information can then be used for further applications, such as targeting for a marketing campaign. 
+ 
+To start off with, load in the demographics data for the general population into a pandas DataFrame, and do the same for the feature attributes summary. Note for all of the `.csv` data files in this project: they're semicolon (`;`) delimited, so you'll need an additional argument in your [`read_csv()`](https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html) call to read in the data properly. Also, considering the size of the main dataset, it may take some time for it to load completely. 
+ 
+Once the dataset is loaded, it's recommended that you take a little bit of time just browsing the general structure of the dataset and feature summary file. You'll be getting deep into the innards of the cleaning in the first major step of the project, so gaining some general familiarity can help you get your bearings. <hr class="ls0"></span><span class="s0">#%% 
+# Load in the general demographics data.</span>
+<span class="s1">azdias </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">read_csv</span><span class="s4">(</span><span class="s5">'Udacity_AZDIAS_Subset.csv'</span><span class="s6">, </span><span class="s1">delimiter</span><span class="s3">=</span><span class="s5">';'</span><span class="s4">)</span>
+<span class="s0"># Load in the feature summary file.</span>
+<span class="s1">feat_info </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">read_csv</span><span class="s4">(</span><span class="s5">'AZDIAS_Feature_Summary.csv'</span><span class="s6">, </span><span class="s1">delimiter</span><span class="s3">=</span><span class="s5">';'</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% 
+# Check the structure of the data after it's loaded (e.g. print the number of</span>
+<span class="s0"># rows and columns, print the first few rows).</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">shape</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">head</span><span class="s4">())</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">feat_info</span><span class="s3">.</span><span class="s1">shape</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">feat_info</span><span class="s3">.</span><span class="s1">head</span><span class="s4">())</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">&gt; **Tip**: Add additional cells to keep everything in reasonably-sized chunks! Keyboard shortcut `esc --&gt; a` (press escape to enter command mode, then press the 'A' key) adds a new cell before the active cell, and `esc --&gt; b` adds a new cell after the active cell. If you need to convert an active cell to a markdown cell, use `esc --&gt; m` and to convert to a code cell, use `esc --&gt; y`. 
+ 
+# Load in the feature summary file. 
+ <hr class="ls0"></span><span class="s0">#%% 
+# Check the structure of the data after it's loaded (e.g. print the number of</span>
+<span class="s0"># rows and columns, print the first few rows).</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">shape</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">head</span><span class="s4">())</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">feat_info</span><span class="s3">.</span><span class="s1">shape</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">feat_info</span><span class="s3">.</span><span class="s1">head</span><span class="s4">())</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Step 1: Preprocessing 
+ 
+ <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">&gt; **Tip**: Add additional cells to keep everything in reasonably-sized chunks! Keyboard shortcut `esc --&gt; a` (press escape to enter command mode, then press the 'A' key) adds a new cell before the active cell, and `esc --&gt; b` adds a new cell after the active cell. If you need to convert an active cell to a markdown cell, use `esc --&gt; m` and to convert to a code cell, use `esc --&gt; y`.  
+ 
+## Step 1: Preprocessing 
+ 
+### Step 1.1: Assess Missing Data 
+ 
+The feature summary file contains a summary of properties for each demographics data column. You will use this file to help you make cleaning decisions during this stage of the project. First of all, you should assess the demographics data in terms of missing data. Pay attention to the following points as you perform your analysis, and take notes on what you observe. Make sure that you fill in the **Discussion** cell with your findings and decisions at the end of each step that has one! 
+ 
+#### Step 1.1.1: Convert Missing Value Codes to NaNs 
+The fourth column of the feature attributes summary (loaded in above as `feat_info`) documents the codes from the data dictionary that indicate missing or unknown data. While the file encodes this as a list (e.g. `[-1,0]`), this will get read in as a string object. You'll need to do a little bit of parsing to make use of it to identify and clean the data. Convert data that matches a 'missing' or 'unknown' value code into a numpy NaN value. You might want to see how much data takes on a 'missing' or 'unknown' code, and how much data is naturally missing, as a point of interest. 
+ 
+**As one more reminder, you are encouraged to add additional cells to break up your analysis into manageable chunks.** <hr class="ls0"></span><span class="s0">#%% 
+# Identify missing or unknown data values and convert them to NaNs.</span>
+<span class="s1">missing_values </span><span class="s3">= </span><span class="s1">feat_info</span><span class="s3">.</span><span class="s1">set_index</span><span class="s4">(</span><span class="s5">'attribute'</span><span class="s4">)[</span><span class="s5">'missing_or_unknown'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">str</span><span class="s3">.</span><span class="s1">extractall</span><span class="s4">(</span><span class="s5">r'(\-?\d+)'</span><span class="s4">)[</span><span class="s7">0</span><span class="s4">]</span><span class="s3">.</span><span class="s1">astype</span><span class="s4">(</span><span class="s1">int</span><span class="s4">)</span><span class="s3">.</span><span class="s1">groupby</span><span class="s4">(</span><span class="s1">level</span><span class="s3">=</span><span class="s7">0</span><span class="s4">)</span><span class="s3">.</span><span class="s1">apply</span><span class="s4">(</span><span class="s1">list</span><span class="s4">)</span><span class="s3">.</span><span class="s1">to_dict</span><span class="s4">()</span>
+
+<span class="s2">for </span><span class="s1">column</span><span class="s6">, </span><span class="s1">missing_codes </span><span class="s2">in </span><span class="s1">missing_values</span><span class="s3">.</span><span class="s1">items</span><span class="s4">()</span><span class="s3">:</span>
+    <span class="s1">azdias</span><span class="s4">[</span><span class="s1">column</span><span class="s4">] </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s1">column</span><span class="s4">]</span><span class="s3">.</span><span class="s1">replace</span><span class="s4">(</span><span class="s1">missing_codes</span><span class="s6">, </span><span class="s1">np</span><span class="s3">.</span><span class="s1">nan</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">#### Step 1.1.2: Assess Missing Data in Each Column 
+ 
+How much missing data is present in each column? There are a few columns that are outliers in terms of the proportion of values that are missing. You will want to use matplotlib's [`hist()`](https://matplotlib.org/api/_as_gen/matplotlib.pyplot.hist.html) function to visualize the distribution of missing value counts to find these columns. Identify and document these columns. While some of these columns might have justifications for keeping or re-encoding the data, for this project you should just remove them from the dataframe. (Feel free to make remarks about these outlier columns in the discussion, however!) 
+ 
+For the remaining features, are there any patterns in which columns have, or share, missing data? <hr class="ls0"></span><span class="s0">#%% 
+# Perform an assessment of how much missing data there is in each column of the</span>
+<span class="s0"># dataset.</span>
+
+<span class="s1">columns_to_drop </span><span class="s3">= </span><span class="s4">[</span><span class="s5">'LP_LEBENSPHASE_FEIN'</span><span class="s6">, </span><span class="s5">'LP_LEBENSPHASE_GROB'</span><span class="s6">, </span><span class="s5">'WOHNLAGE'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG1'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG2'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG3'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG4'</span><span class="s6">, </span><span class="s5">'PLZ8_BAUMAX'</span><span class="s6">, </span><span class="s5">'PLZ8_HHZ'</span><span class="s6">, </span><span class="s5">'PLZ8_GBZ'</span><span class="s6">, </span><span class="s5">'AGER_TYP_2.0'</span><span class="s6">, </span><span class="s5">'AGER_TYP_3.0'</span><span class="s6">, </span><span class="s5">'CJT_GESAMTTYP_2.0'</span><span class="s6">, </span><span class="s5">'CJT_GESAMTTYP_3.0'</span><span class="s6">, </span><span class="s5">'CJT_GESAMTTYP_4.0'</span><span class="s6">, </span><span class="s5">'CJT_GESAMTTYP_5.0'</span><span class="s6">, </span><span class="s5">'CJT_GESAMTTYP_6.0'</span><span class="s6">, </span><span class="s5">'FINANZTYP_2'</span><span class="s6">, </span><span class="s5">'FINANZTYP_3'</span><span class="s6">, </span><span class="s5">'FINANZTYP_4'</span><span class="s6">, </span><span class="s5">'FINANZTYP_5'</span><span class="s6">, </span><span class="s5">'FINANZTYP_6'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_2.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_3.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_4.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_5.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_6.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_7.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_8.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_9.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_10.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_11.0'</span><span class="s6">, </span><span class="s5">'GFK_URLAUBERTYP_12.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_2.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_3.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_4.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_5.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_6.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_7.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_8.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_9.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_10.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_FEIN_11.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_GROB_2.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_GROB_3.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_GROB_4.0'</span><span class="s6">, </span><span class="s5">'LP_FAMILIE_GROB_5.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_2.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_3.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_4.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_5.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_6.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_7.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_8.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_9.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_FEIN_10.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_GROB_2.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_GROB_3.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_GROB_4.0'</span><span class="s6">, </span><span class="s5">'LP_STATUS_GROB_5.0'</span><span class="s6">, </span><span class="s5">'NATIONALITAET_KZ_2.0'</span><span class="s6">, </span><span class="s5">'NATIONALITAET_KZ_3.0'</span><span class="s6">, </span><span class="s5">'SHOPPER_TYP_1.0'</span><span class="s6">, </span><span class="s5">'SHOPPER_TYP_2.0'</span><span class="s6">, </span><span class="s5">'SHOPPER_TYP_3.0'</span><span class="s6">, </span><span class="s5">'TITEL_KZ_2.0'</span><span class="s6">, </span><span class="s5">'TITEL_KZ_3.0'</span><span class="s6">, </span><span class="s5">'TITEL_KZ_4.0'</span><span class="s6">, </span><span class="s5">'TITEL_KZ_5.0'</span><span class="s6">, </span><span class="s5">'ZABEOTYP_2'</span><span class="s6">, </span><span class="s5">'ZABEOTYP_3'</span><span class="s6">, </span><span class="s5">'ZABEOTYP_4'</span><span class="s6">, </span><span class="s5">'ZABEOTYP_5'</span><span class="s6">, </span><span class="s5">'ZABEOTYP_6'</span><span class="s6">, </span><span class="s5">'KK_KUNDENTYP_2.0'</span><span class="s6">, </span><span class="s5">'KK_KUNDENTYP_3.0'</span><span class="s6">, </span><span class="s5">'KK_KUNDENTYP_4.0'</span><span class="s6">, </span><span class="s5">'KK_KUNDENTYP_5.0'</span><span class="s6">, </span><span class="s5">'KK_KUNDENTYP_6.0'</span><span class="s6">, </span><span class="s5">'GEBAEUDETYP_2.0'</span><span class="s6">, </span><span class="s5">'GEBAEUDETYP_3.0'</span><span class="s6">, </span><span class="s5">'GEBAEUDETYP_4.0'</span><span class="s6">, </span><span class="s5">'GEBAEUDETYP_5.0'</span><span class="s6">, </span><span class="s5">'GEBAEUDETYP_6.0'</span><span class="s6">, </span><span class="s5">'GEBAEUDETYP_8.0'</span><span class="s4">]</span>
+
+<span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">columns_to_drop</span><span class="s6">, </span><span class="s1">errors</span><span class="s3">=</span><span class="s5">'ignore'</span><span class="s4">)</span>
+
+<span class="s1">missing_data </span><span class="s3">= </span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">isnull</span><span class="s4">()</span><span class="s3">.</span><span class="s1">mean</span><span class="s4">() </span><span class="s3">* </span><span class="s7">100</span>
+
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">figure</span><span class="s4">(</span><span class="s1">figsize</span><span class="s3">=</span><span class="s4">(</span><span class="s7">10</span><span class="s6">, </span><span class="s7">6</span><span class="s4">))</span>
+<span class="s1">missing_data</span><span class="s3">.</span><span class="s1">hist</span><span class="s4">(</span><span class="s1">bins</span><span class="s3">=</span><span class="s7">50</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">title</span><span class="s4">(</span><span class="s5">'Distribution of Missing Values per Column'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">xlabel</span><span class="s4">(</span><span class="s5">'Percentage of Missing Values'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">ylabel</span><span class="s4">(</span><span class="s5">'Number of Columns'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">show</span><span class="s4">()</span>
+
+<hr class="ls0"><span class="s0">#%% 
+# Investigate patterns in the amount of missing data in each column.</span>
+<span class="s1">high_missing_cols </span><span class="s3">= </span><span class="s1">missing_data</span><span class="s4">[</span><span class="s1">missing_data </span><span class="s3">&gt; </span><span class="s7">30</span><span class="s4">]</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Columns with more than 30% missing values:\n{</span><span class="s1">high_missing_cols</span><span class="s5">}&quot;</span><span class="s4">)</span>
+<hr class="ls0"><span class="s0">#%% 
+# Remove the outlier columns from the dataset. (You'll perform other data</span>
+<span class="s0"># engineering tasks such as re-encoding and imputation later.)</span>
+
+<span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">high_missing_cols</span><span class="s3">.</span><span class="s1">index</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">#### Discussion 1.1.2: Assess Missing Data in Each Column 
+ 
+(Double click this cell and replace this text with your own text, reporting your observations regarding the amount of missing data in each column. Are there any patterns in missing values? Which columns were removed from the dataset?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">#### Step 1.1.3: Assess Missing Data in Each Row 
+ 
+Now, you'll perform a similar assessment for the rows of the dataset. How much data is missing in each row? As with the columns, you should see some groups of points that have a very different numbers of missing values. Divide the data into two subsets: one for data points that are above some threshold for missing values, and a second subset for points below that threshold. 
+ 
+In order to know what to do with the outlier rows, we should see if the distribution of data values on columns that are not missing data (or are missing very little data) are similar or different between the two groups. Select at least five of these columns and compare the distribution of values. 
+- You can use seaborn's [`countplot()`](https://seaborn.pydata.org/generated/seaborn.countplot.html) function to create a bar chart of code frequencies and matplotlib's [`subplot()`](https://matplotlib.org/api/_as_gen/matplotlib.pyplot.subplot.html) function to put bar charts for the two subplots side by side. 
+- To reduce repeated code, you might want to write a function that can perform this comparison, taking as one of its arguments a column to be compared. 
+ 
+Depending on what you observe in your comparison, this will have implications on how you approach your conclusions later in the analysis. If the distributions of non-missing features look similar between the data with many missing values and the data with few or no missing values, then we could argue that simply dropping those points from the analysis won't present a major issue. On the other hand, if the data with many missing values looks very different from the data with few or no missing values, then we should make a note on those data as special. We'll revisit these data later on. **Either way, you should continue your analysis for now using just the subset of the data with few or no missing values.** <hr class="ls0"></span><span class="s0">#%% 
+# How much data is missing in each row of the dataset?</span>
+<span class="s1">missing_data_per_row </span><span class="s3">= </span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">isnull</span><span class="s4">()</span><span class="s3">.</span><span class="s1">sum</span><span class="s4">(</span><span class="s1">axis</span><span class="s3">=</span><span class="s7">1</span><span class="s4">)</span>
+
+<hr class="ls0"><span class="s0">#%% 
+# Write code to divide the data into two subsets based on the number of missing</span>
+<span class="s0"># values in each row.</span>
+<span class="s1">threshold </span><span class="s3">= </span><span class="s7">30  </span><span class="s0"># Example threshold for the number of missing values</span>
+<span class="s1">subset_few_missing </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s1">missing_data_per_row </span><span class="s3">&lt;= </span><span class="s1">threshold</span><span class="s4">]</span>
+<span class="s1">subset_many_missing </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s1">missing_data_per_row </span><span class="s3">&gt; </span><span class="s1">threshold</span><span class="s4">]</span>
+
+<hr class="ls0"><span class="s0">#%% 
+# Compare the distribution of values for at least five columns where there are</span>
+<span class="s0"># no or few missing values, between the two subsets.</span>
+
+<span class="s2">import </span><span class="s1">seaborn </span><span class="s2">as </span><span class="s1">sns</span>
+<span class="s2">import </span><span class="s1">matplotlib</span><span class="s3">.</span><span class="s1">pyplot </span><span class="s2">as </span><span class="s1">plt</span>
+
+<span class="s1">columns_to_compare </span><span class="s3">= </span><span class="s4">[</span><span class="s5">'CAMEO_DEUG_2015'</span><span class="s6">, </span><span class="s5">'CAMEO_DEU_2015'</span><span class="s6">, </span><span class="s5">'PRAEGENDE_JUGENDJAHRE'</span><span class="s6">, </span><span class="s5">'LP_LEBENSPHASE_FEIN'</span><span class="s6">, </span><span class="s5">'LP_LEBENSPHASE_GROB'</span><span class="s4">]</span>
+
+<span class="s2">for </span><span class="s1">column </span><span class="s2">in </span><span class="s1">columns_to_compare</span><span class="s3">:</span>
+    <span class="s1">plt</span><span class="s3">.</span><span class="s1">figure</span><span class="s4">(</span><span class="s1">figsize</span><span class="s3">=</span><span class="s4">(</span><span class="s7">12</span><span class="s6">, </span><span class="s7">6</span><span class="s4">))</span>
+
+    <span class="s1">plt</span><span class="s3">.</span><span class="s1">subplot</span><span class="s4">(</span><span class="s7">1</span><span class="s6">, </span><span class="s7">2</span><span class="s6">, </span><span class="s7">1</span><span class="s4">)</span>
+    <span class="s1">sns</span><span class="s3">.</span><span class="s1">countplot</span><span class="s4">(</span><span class="s1">data</span><span class="s3">=</span><span class="s1">subset_few_missing</span><span class="s6">, </span><span class="s1">x</span><span class="s3">=</span><span class="s1">column</span><span class="s4">)</span>
+    <span class="s1">plt</span><span class="s3">.</span><span class="s1">title</span><span class="s4">(</span><span class="s5">f'Distribution in Subset with Few Missing Values: {</span><span class="s1">column</span><span class="s5">}'</span><span class="s4">)</span>
+
+    <span class="s1">plt</span><span class="s3">.</span><span class="s1">subplot</span><span class="s4">(</span><span class="s7">1</span><span class="s6">, </span><span class="s7">2</span><span class="s6">, </span><span class="s7">2</span><span class="s4">)</span>
+    <span class="s1">sns</span><span class="s3">.</span><span class="s1">countplot</span><span class="s4">(</span><span class="s1">data</span><span class="s3">=</span><span class="s1">subset_many_missing</span><span class="s6">, </span><span class="s1">x</span><span class="s3">=</span><span class="s1">column</span><span class="s4">)</span>
+    <span class="s1">plt</span><span class="s3">.</span><span class="s1">title</span><span class="s4">(</span><span class="s5">f'Distribution in Subset with Many Missing Values: {</span><span class="s1">column</span><span class="s5">}'</span><span class="s4">)</span>
+
+    <span class="s1">plt</span><span class="s3">.</span><span class="s1">tight_layout</span><span class="s4">()</span>
+    <span class="s1">plt</span><span class="s3">.</span><span class="s1">show</span><span class="s4">()</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">#### Discussion 1.1.3: Assess Missing Data in Each Row 
+ 
+(Double-click this cell and replace this text with your own text, reporting your observations regarding missing data in rows. Are the data with lots of missing values are qualitatively different from data with few or no missing values?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">### Step 1.2: Select and Re-Encode Features 
+ 
+Checking for missing data isn't the only way in which you can prepare a dataset for analysis. Since the unsupervised learning techniques to be used will only work on data that is encoded numerically, you need to make a few encoding changes or additional assumptions to be able to make progress. In addition, while almost all of the values in the dataset are encoded using numbers, not all of them represent numeric values. Check the third column of the feature summary (`feat_info`) for a summary of types of measurement. 
+- For numeric and interval data, these features can be kept without changes. 
+- Most of the variables in the dataset are ordinal in nature. While ordinal values may technically be non-linear in spacing, make the simplifying assumption that the ordinal variables can be treated as being interval in nature (that is, kept without any changes). 
+- Special handling may be necessary for the remaining two variable types: categorical, and 'mixed'. 
+ 
+In the first two parts of this sub-step, you will perform an investigation of the categorical and mixed-type features and make a decision on each of them, whether you will keep, drop, or re-encode each. Then, in the last part, you will create a new data frame with only the selected and engineered columns. 
+ 
+Data wrangling is often the trickiest part of the data analysis process, and there's a lot of it to be done here. But stick with it: once you're done with this step, you'll be ready to get to the machine learning parts of the project! <hr class="ls0"></span><span class="s0">#%% 
+# How many features are there of each data type?</span>
+<span class="s1">data_type_counts </span><span class="s3">= </span><span class="s1">feat_info</span><span class="s4">[</span><span class="s5">'type'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">value_counts</span><span class="s4">()</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s1">data_type_counts</span><span class="s4">)</span>
+<hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">#### Step 1.2.1: Re-Encode Categorical Features 
+ 
+For categorical data, you would ordinarily need to encode the levels as dummy variables. Depending on the number of categories, perform one of the following: 
+- For binary (two-level) categoricals that take numeric values, you can keep them without needing to do anything. 
+- There is one binary variable that takes on non-numeric values. For this one, you need to re-encode the values as numbers or create a dummy variable. 
+- For multi-level categoricals (three or more values), you can choose to encode the values using multiple dummy variables (e.g. via [OneHotEncoder](http://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html)), or (to keep things straightforward) just drop them from the analysis. As always, document your choices in the Discussion section. <hr class="ls0"></span><span class="s0">#%% 
+# Assess categorical variables: which are binary, which are multi-level, and</span>
+<span class="s0"># which one needs to be re-encoded?</span>
+<span class="s1">categorical_features </span><span class="s3">= </span><span class="s1">feat_info</span><span class="s4">[</span><span class="s1">feat_info</span><span class="s4">[</span><span class="s5">'type'</span><span class="s4">] </span><span class="s3">== </span><span class="s5">'categorical'</span><span class="s4">][</span><span class="s5">'attribute'</span><span class="s4">]</span>
+
+<span class="s1">binary_categorical </span><span class="s3">= </span><span class="s4">[]</span>
+<span class="s1">multi_level_categorical </span><span class="s3">= </span><span class="s4">[]</span>
+<span class="s1">non_numeric_binary </span><span class="s3">= </span><span class="s4">[]</span>
+
+<span class="s2">for </span><span class="s1">feature </span><span class="s2">in </span><span class="s1">categorical_features</span><span class="s3">:</span>
+    <span class="s1">unique_values </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s1">feature</span><span class="s4">]</span><span class="s3">.</span><span class="s1">dropna</span><span class="s4">()</span><span class="s3">.</span><span class="s1">unique</span><span class="s4">()</span>
+    <span class="s2">if </span><span class="s1">len</span><span class="s4">(</span><span class="s1">unique_values</span><span class="s4">) </span><span class="s3">== </span><span class="s7">2</span><span class="s3">:</span>
+        <span class="s2">if </span><span class="s1">azdias</span><span class="s4">[</span><span class="s1">feature</span><span class="s4">]</span><span class="s3">.</span><span class="s1">dtype </span><span class="s3">== </span><span class="s5">'object'</span><span class="s3">:</span>
+            <span class="s1">non_numeric_binary</span><span class="s3">.</span><span class="s1">append</span><span class="s4">(</span><span class="s1">feature</span><span class="s4">)</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">binary_categorical</span><span class="s3">.</span><span class="s1">append</span><span class="s4">(</span><span class="s1">feature</span><span class="s4">)</span>
+    <span class="s2">elif </span><span class="s1">len</span><span class="s4">(</span><span class="s1">unique_values</span><span class="s4">) </span><span class="s3">&gt; </span><span class="s7">2</span><span class="s3">:</span>
+        <span class="s1">multi_level_categorical</span><span class="s3">.</span><span class="s1">append</span><span class="s4">(</span><span class="s1">feature</span><span class="s4">)</span>
+
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Binary Categorical Features: {</span><span class="s1">binary_categorical</span><span class="s5">}&quot;</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Multi-level Categorical Features: {</span><span class="s1">multi_level_categorical</span><span class="s5">}&quot;</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Non-numeric Binary Features: {</span><span class="s1">non_numeric_binary</span><span class="s5">}&quot;</span><span class="s4">)</span>
+
+<hr class="ls0"><span class="s0">#%% 
+# Re-encode categorical variable(s) to be kept in the analysis.</span>
+<span class="s2">for </span><span class="s1">feature </span><span class="s2">in </span><span class="s1">non_numeric_binary</span><span class="s3">:</span>
+    <span class="s1">azdias</span><span class="s4">[</span><span class="s1">feature</span><span class="s4">] </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s1">feature</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">({</span><span class="s5">'yes'</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s5">'no'</span><span class="s3">: </span><span class="s7">0</span><span class="s4">})</span>
+
+<span class="s1">azdias </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">get_dummies</span><span class="s4">(</span><span class="s1">azdias</span><span class="s6">, </span><span class="s1">columns</span><span class="s3">=</span><span class="s1">multi_level_categorical</span><span class="s6">, </span><span class="s1">drop_first</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span>
+<hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">#### Discussion 1.2.1: Re-Encode Categorical Features 
+ 
+(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding categorical features. Which ones did you keep, which did you drop, and what engineering steps did you perform?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">#### Step 1.2.2: Engineer Mixed-Type Features 
+ 
+There are a handful of features that are marked as &quot;mixed&quot; in the feature summary that require special treatment in order to be included in the analysis. There are two in particular that deserve attention; the handling of the rest are up to your own choices: 
+- &quot;PRAEGENDE_JUGENDJAHRE&quot; combines information on three dimensions: generation by decade, movement (mainstream vs. avantgarde), and nation (east vs. west). While there aren't enough levels to disentangle east from west, you should create two new variables to capture the other two dimensions: an interval-type variable for decade, and a binary variable for movement. 
+- &quot;CAMEO_INTL_2015&quot; combines information on two axes: wealth and life stage. Break up the two-digit codes by their 'tens'-place and 'ones'-place digits into two new ordinal variables (which, for the purposes of this project, is equivalent to just treating them as their raw numeric values). 
+- If you decide to keep or engineer new features around the other mixed-type features, make sure you note your steps in the Discussion section. 
+ 
+Be sure to check `Data_Dictionary.md` for the details needed to finish these tasks. <hr class="ls0"></span><span class="s0">#%% 
+# Investigate &quot;PRAEGENDE_JUGENDJAHRE&quot; and engineer two new variables.</span>
+<span class="s1">decade_map </span><span class="s3">= </span><span class="s4">{</span>
+    <span class="s7">1</span><span class="s3">: </span><span class="s7">40</span><span class="s6">, </span><span class="s7">2</span><span class="s3">: </span><span class="s7">40</span><span class="s6">, </span><span class="s7">3</span><span class="s3">: </span><span class="s7">50</span><span class="s6">, </span><span class="s7">4</span><span class="s3">: </span><span class="s7">50</span><span class="s6">, </span><span class="s7">5</span><span class="s3">: </span><span class="s7">60</span><span class="s6">, </span><span class="s7">6</span><span class="s3">: </span><span class="s7">60</span><span class="s6">, </span><span class="s7">7</span><span class="s3">: </span><span class="s7">60</span><span class="s6">, </span><span class="s7">8</span><span class="s3">: </span><span class="s7">70</span><span class="s6">, </span><span class="s7">9</span><span class="s3">: </span><span class="s7">70</span><span class="s6">, </span><span class="s7">10</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">11</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">90</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">90</span>
+<span class="s4">}</span>
+
+<span class="s1">movement_map </span><span class="s3">= </span><span class="s4">{</span>
+    <span class="s7">1</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">2</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">3</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">4</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">5</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">6</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">7</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">8</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">9</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">10</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">11</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">0</span>
+<span class="s4">}</span>
+
+<span class="s1">azdias</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE_DECADE'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">decade_map</span><span class="s4">)</span>
+<span class="s1">azdias</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE_MOVEMENT'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">movement_map</span><span class="s4">)</span>
+
+<span class="s1">azdias</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s5">'PRAEGENDE_JUGENDJAHRE'</span><span class="s6">, </span><span class="s1">inplace</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span>
+<hr class="ls0"><span class="s0">#%% 
+# Investigate &quot;CAMEO_INTL_2015&quot; and engineer two new variables.</span>
+
+<span class="s1">wealth_map </span><span class="s3">= </span><span class="s4">{</span>
+    <span class="s7">11</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">1</span><span class="s6">,</span>
+    <span class="s7">21</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">22</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">23</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">24</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">25</span><span class="s3">: </span><span class="s7">2</span><span class="s6">,</span>
+    <span class="s7">31</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">32</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">33</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">34</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">35</span><span class="s3">: </span><span class="s7">3</span><span class="s6">,</span>
+    <span class="s7">41</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">42</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">43</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">44</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">45</span><span class="s3">: </span><span class="s7">4</span><span class="s6">,</span>
+    <span class="s7">51</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">52</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">53</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">54</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">55</span><span class="s3">: </span><span class="s7">5</span>
+<span class="s4">}</span>
+
+<span class="s1">life_stage_map </span><span class="s3">= </span><span class="s4">{</span>
+    <span class="s7">11</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+    <span class="s7">21</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">22</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">23</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">24</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">25</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+    <span class="s7">31</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">32</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">33</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">34</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">35</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+    <span class="s7">41</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">42</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">43</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">44</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">45</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+    <span class="s7">51</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">52</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">53</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">54</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">55</span><span class="s3">: </span><span class="s7">5</span>
+<span class="s4">}</span>
+
+<span class="s1">azdias</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015_WEALTH'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">wealth_map</span><span class="s4">)</span>
+<span class="s1">azdias</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015_LIFE_STAGE'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">azdias</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">life_stage_map</span><span class="s4">)</span>
+
+<span class="s1">azdias</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s5">'CAMEO_INTL_2015'</span><span class="s6">, </span><span class="s1">inplace</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span>
+<hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">#### Discussion 1.2.2: Engineer Mixed-Type Features 
+ 
+(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding mixed-value features. Which ones did you keep, which did you drop, and what engineering steps did you perform?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">#### Step 1.2.3: Complete Feature Selection 
+ 
+In order to finish this step up, you need to make sure that your data frame now only has the columns that you want to keep. To summarize, the dataframe should consist of the following: 
+- All numeric, interval, and ordinal type columns from the original dataset. 
+- Binary categorical features (all numerically-encoded). 
+- Engineered features from other multi-level categorical features and mixed features. 
+ 
+Make sure that for any new columns that you have engineered, that you've excluded the original columns from the final dataset. Otherwise, their values will interfere with the analysis later on the project. For example, you should not keep &quot;PRAEGENDE_JUGENDJAHRE&quot;, since its values won't be useful for the algorithm: only the values derived from it in the engineered features you created should be retained. As a reminder, your data should only be from **the subset with few or no missing values**. <hr class="ls0"></span><span class="s0">#%% 
+# If there are other re-engineering tasks you need to perform, make sure you</span>
+<span class="s0"># take care of them here. (Dealing with missing data will come in step 2.1.)</span>
+<span class="s1">columns_to_drop </span><span class="s3">= </span><span class="s4">[</span><span class="s5">'LP_LEBENSPHASE_FEIN'</span><span class="s6">, </span><span class="s5">'LP_LEBENSPHASE_GROB'</span><span class="s6">, </span><span class="s5">'WOHNLAGE'</span><span class="s6">, </span><span class="s5">'PLZ8_BAUMAX'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG1'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG2'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG3'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG4'</span><span class="s6">, </span><span class="s5">'PLZ8_HHZ'</span><span class="s6">, </span><span class="s5">'PLZ8_GBZ'</span><span class="s6">, </span><span class="s5">'KBA05_BAUMAX'</span><span class="s4">]</span>
+
+<span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">columns_to_drop</span><span class="s4">)</span>
+
+
+
+<hr class="ls0"><span class="s0">#%% 
+# Do whatever you need to in order to ensure that the dataframe only contains</span>
+<span class="s0"># the columns that should be passed to the algorithm functions.</span>
+
+<span class="s1">required_columns </span><span class="s3">= </span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">columns</span>
+
+<span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">azdias_cleaned</span><span class="s4">[</span><span class="s1">required_columns</span><span class="s4">]</span>
+
+<span class="s1">print</span><span class="s4">(</span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">head</span><span class="s4">())</span>
+
+<hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Step 1.3: Create a Cleaning Function 
+ 
+Even though you've finished cleaning up the general population demographics data, it's important to look ahead to the future and realize that you'll need to perform the same cleaning steps on the customer demographics data. In this substep, complete the function below to execute the main feature selection, encoding, and re-engineering steps you performed above. Then, when it comes to looking at the customer data in Step 3, you can just run this function on that DataFrame to get the trimmed dataset in a single step. <hr class="ls0"></span><span class="s0">#%% 
+</span><span class="s2">def </span><span class="s1">clean_data</span><span class="s4">(</span><span class="s1">df</span><span class="s4">)</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Perform feature trimming, re-encoding, and engineering for demographics 
+    data 
+     
+    INPUT: Demographics DataFrame 
+    OUTPUT: Trimmed and cleaned demographics DataFrame 
+    &quot;&quot;&quot;</span>
+
+    <span class="s0"># Put in code here to execute all main cleaning steps:</span>
+    <span class="s0"># Convert missing value codes into NaNs</span>
+    <span class="s1">missing_values </span><span class="s3">= </span><span class="s1">feat_info</span><span class="s3">.</span><span class="s1">set_index</span><span class="s4">(</span><span class="s5">'attribute'</span><span class="s4">)[</span><span class="s5">'missing_or_unknown'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">str</span><span class="s3">.</span><span class="s1">extractall</span><span class="s4">(</span><span class="s5">r'(\-?\d+)'</span><span class="s4">)[</span><span class="s7">0</span><span class="s4">]</span><span class="s3">.</span><span class="s1">astype</span><span class="s4">(</span><span class="s1">int</span><span class="s4">)</span><span class="s3">.</span><span class="s1">groupby</span><span class="s4">(</span><span class="s1">level</span><span class="s3">=</span><span class="s7">0</span><span class="s4">)</span><span class="s3">.</span><span class="s1">apply</span><span class="s4">(</span><span class="s1">list</span><span class="s4">)</span><span class="s3">.</span><span class="s1">to_dict</span><span class="s4">()</span>
+    <span class="s2">for </span><span class="s1">column</span><span class="s6">, </span><span class="s1">missing_codes </span><span class="s2">in </span><span class="s1">missing_values</span><span class="s3">.</span><span class="s1">items</span><span class="s4">()</span><span class="s3">:</span>
+        <span class="s1">df</span><span class="s4">[</span><span class="s1">column</span><span class="s4">] </span><span class="s3">= </span><span class="s1">df</span><span class="s4">[</span><span class="s1">column</span><span class="s4">]</span><span class="s3">.</span><span class="s1">replace</span><span class="s4">(</span><span class="s1">missing_codes</span><span class="s6">, </span><span class="s1">np</span><span class="s3">.</span><span class="s1">nan</span><span class="s4">)</span>
+
+    <span class="s0"># Remove selected columns</span>
+    <span class="s1">columns_to_drop </span><span class="s3">= </span><span class="s4">[</span><span class="s5">'LP_LEBENSPHASE_FEIN'</span><span class="s6">, </span><span class="s5">'LP_LEBENSPHASE_GROB'</span><span class="s6">, </span><span class="s5">'WOHNLAGE'</span><span class="s6">, </span><span class="s5">'PLZ8_BAUMAX'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG1'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG2'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG3'</span><span class="s6">, </span><span class="s5">'PLZ8_ANTG4'</span><span class="s6">, </span><span class="s5">'PLZ8_HHZ'</span><span class="s6">, </span><span class="s5">'PLZ8_GBZ'</span><span class="s6">, </span><span class="s5">'KBA05_BAUMAX'</span><span class="s4">]</span>
+    <span class="s1">df </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">columns_to_drop</span><span class="s4">)</span>
+
+    <span class="s0"># Re-encode categorical variables</span>
+    <span class="s1">non_numeric_binary </span><span class="s3">= </span><span class="s4">[</span><span class="s5">'OST_WEST_KZ'</span><span class="s4">]</span>
+    <span class="s2">for </span><span class="s1">feature </span><span class="s2">in </span><span class="s1">non_numeric_binary</span><span class="s3">:</span>
+        <span class="s1">df</span><span class="s4">[</span><span class="s1">feature</span><span class="s4">] </span><span class="s3">= </span><span class="s1">df</span><span class="s4">[</span><span class="s1">feature</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">({</span><span class="s5">'W'</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s5">'O'</span><span class="s3">: </span><span class="s7">0</span><span class="s4">})</span>
+
+    <span class="s1">multi_level_categorical </span><span class="s3">= </span><span class="s4">[</span><span class="s5">'CAMEO_DEUG_2015'</span><span class="s6">, </span><span class="s5">'CAMEO_DEU_2015'</span><span class="s4">]</span>
+    <span class="s1">df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">get_dummies</span><span class="s4">(</span><span class="s1">df</span><span class="s6">, </span><span class="s1">columns</span><span class="s3">=</span><span class="s1">multi_level_categorical</span><span class="s6">, </span><span class="s1">drop_first</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span>
+
+    <span class="s0"># Engineer mixed-type features</span>
+    <span class="s1">decade_map </span><span class="s3">= </span><span class="s4">{</span>
+        <span class="s7">1</span><span class="s3">: </span><span class="s7">40</span><span class="s6">, </span><span class="s7">2</span><span class="s3">: </span><span class="s7">40</span><span class="s6">, </span><span class="s7">3</span><span class="s3">: </span><span class="s7">50</span><span class="s6">, </span><span class="s7">4</span><span class="s3">: </span><span class="s7">50</span><span class="s6">, </span><span class="s7">5</span><span class="s3">: </span><span class="s7">60</span><span class="s6">, </span><span class="s7">6</span><span class="s3">: </span><span class="s7">60</span><span class="s6">, </span><span class="s7">7</span><span class="s3">: </span><span class="s7">60</span><span class="s6">, </span><span class="s7">8</span><span class="s3">: </span><span class="s7">70</span><span class="s6">, </span><span class="s7">9</span><span class="s3">: </span><span class="s7">70</span><span class="s6">, </span><span class="s7">10</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">11</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">80</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">90</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">90</span>
+    <span class="s4">}</span>
+    <span class="s1">movement_map </span><span class="s3">= </span><span class="s4">{</span>
+        <span class="s7">1</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">2</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">3</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">4</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">5</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">6</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">7</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">8</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">9</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">10</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">11</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">0</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">0</span>
+    <span class="s4">}</span>
+    <span class="s1">df</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE_DECADE'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">df</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">decade_map</span><span class="s4">)</span>
+    <span class="s1">df</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE_MOVEMENT'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">df</span><span class="s4">[</span><span class="s5">'PRAEGENDE_JUGENDJAHRE'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">movement_map</span><span class="s4">)</span>
+    <span class="s1">df</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s5">'PRAEGENDE_JUGENDJAHRE'</span><span class="s6">, </span><span class="s1">inplace</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span>
+
+    <span class="s1">wealth_map </span><span class="s3">= </span><span class="s4">{</span>
+        <span class="s7">11</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">1</span><span class="s6">,</span>
+        <span class="s7">21</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">22</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">23</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">24</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">25</span><span class="s3">: </span><span class="s7">2</span><span class="s6">,</span>
+        <span class="s7">31</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">32</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">33</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">34</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">35</span><span class="s3">: </span><span class="s7">3</span><span class="s6">,</span>
+        <span class="s7">41</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">42</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">43</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">44</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">45</span><span class="s3">: </span><span class="s7">4</span><span class="s6">,</span>
+        <span class="s7">51</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">52</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">53</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">54</span><span class="s3">: </span><span class="s7">5</span><span class="s6">, </span><span class="s7">55</span><span class="s3">: </span><span class="s7">5</span>
+    <span class="s4">}</span>
+    <span class="s1">life_stage_map </span><span class="s3">= </span><span class="s4">{</span>
+        <span class="s7">11</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">12</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">13</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">14</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">15</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+        <span class="s7">21</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">22</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">23</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">24</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">25</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+        <span class="s7">31</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">32</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">33</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">34</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">35</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+        <span class="s7">41</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">42</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">43</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">44</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">45</span><span class="s3">: </span><span class="s7">5</span><span class="s6">,</span>
+        <span class="s7">51</span><span class="s3">: </span><span class="s7">1</span><span class="s6">, </span><span class="s7">52</span><span class="s3">: </span><span class="s7">2</span><span class="s6">, </span><span class="s7">53</span><span class="s3">: </span><span class="s7">3</span><span class="s6">, </span><span class="s7">54</span><span class="s3">: </span><span class="s7">4</span><span class="s6">, </span><span class="s7">55</span><span class="s3">: </span><span class="s7">5</span>
+    <span class="s4">}</span>
+    <span class="s1">df</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015_WEALTH'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">df</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">wealth_map</span><span class="s4">)</span>
+    <span class="s1">df</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015_LIFE_STAGE'</span><span class="s4">] </span><span class="s3">= </span><span class="s1">df</span><span class="s4">[</span><span class="s5">'CAMEO_INTL_2015'</span><span class="s4">]</span><span class="s3">.</span><span class="s1">map</span><span class="s4">(</span><span class="s1">life_stage_map</span><span class="s4">)</span>
+    <span class="s1">df</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s5">'CAMEO_INTL_2015'</span><span class="s6">, </span><span class="s1">inplace</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span>
+
+    <span class="s2">return </span><span class="s1">df</span>
+    <hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">## Step 2: Feature Transformation 
+ 
+### Step 2.1: Apply Feature Scaling 
+ 
+Before we apply dimensionality reduction techniques to the data, we need to perform feature scaling so that the principal component vectors are not influenced by the natural differences in scale for features. Starting from this part of the project, you'll want to keep an eye on the [API reference page for sklearn](http://scikit-learn.org/stable/modules/classes.html) to help you navigate to all of the classes and functions that you'll need. In this substep, you'll need to check the following: 
+ 
+- sklearn requires that data not have missing values in order for its estimators to work properly. So, before applying the scaler to your data, make sure that you've cleaned the DataFrame of the remaining missing values. This can be as simple as just removing all data points with missing data, or applying an [SimpleImputer](https://scikit-learn.org/stable/modules/generated/sklearn.impute.SimpleImputer.html) to replace all missing values. You might also try a more complicated procedure where you temporarily remove missing values in order to compute the scaling parameters before re-introducing those missing values and applying imputation. Think about how much missing data you have and what possible effects each approach might have on your analysis, and justify your decision in the discussion section below. 
+- For the actual scaling function, a [StandardScaler](http://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html) instance is suggested, scaling each feature to mean 0 and standard deviation 1. 
+- For these classes, you can make use of the `.fit_transform()` method to both fit a procedure to the data as well as apply the transformation to the data at the same time. Don't forget to keep the fit sklearn objects handy, since you'll be applying them to the customer demographics data towards the end of the project. <hr class="ls0"></span><span class="s0">#%% 
+# If you've not yet cleaned the dataset of all NaN values, then investigate and</span>
+<span class="s0"># do that now.</span>
+<span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">high_missing_cols</span><span class="s3">.</span><span class="s1">index</span><span class="s6">, </span><span class="s1">errors</span><span class="s3">=</span><span class="s5">'ignore'</span><span class="s4">)</span>
+
+<span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">dropna</span><span class="s4">(</span><span class="s1">axis</span><span class="s3">=</span><span class="s7">1</span><span class="s6">, </span><span class="s1">how</span><span class="s3">=</span><span class="s5">'all'</span><span class="s4">)</span>
+
+
+<span class="s1">imputer </span><span class="s3">= </span><span class="s1">SimpleImputer</span><span class="s4">(</span><span class="s1">strategy</span><span class="s3">=</span><span class="s5">'mean'</span><span class="s4">)</span>
+<span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s4">(</span><span class="s1">imputer</span><span class="s3">.</span><span class="s1">fit_transform</span><span class="s4">(</span><span class="s1">azdias_cleaned</span><span class="s4">)</span><span class="s6">, </span><span class="s1">columns</span><span class="s3">=</span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">columns</span><span class="s4">)</span>
+<hr class="ls0"><span class="s0">#%% 
+# Apply feature scaling to the general population demographics data.</span>
+<span class="s2">from </span><span class="s1">sklearn</span><span class="s3">.</span><span class="s1">preprocessing </span><span class="s2">import </span><span class="s1">StandardScaler</span>
+
+<span class="s1">scaler </span><span class="s3">= </span><span class="s1">StandardScaler</span><span class="s4">()</span>
+<span class="s1">azdias_scaled </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s4">(</span><span class="s1">scaler</span><span class="s3">.</span><span class="s1">fit_transform</span><span class="s4">(</span><span class="s1">azdias_cleaned</span><span class="s4">)</span><span class="s6">, </span><span class="s1">columns</span><span class="s3">=</span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">columns</span><span class="s4">)</span>
+<span class="s1">azdias_scaled</span><span class="s3">.</span><span class="s1">head</span><span class="s4">()</span>
+
+
+<hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Discussion 2.1: Apply Feature Scaling 
+ 
+(Double-click this cell and replace this text with your own text, reporting your decisions regarding feature scaling.) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">### Step 2.2: Perform Dimensionality Reduction 
+ 
+On your scaled data, you are now ready to apply dimensionality reduction techniques. 
+ 
+- Use sklearn's [PCA](http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html) class to apply principal component analysis on the data, thus finding the vectors of maximal variance in the data. To start, you should not set any parameters (so all components are computed) or set a number of components that is at least half the number of features (so there's enough features to see the general trend in variability). 
+- Check out the ratio of variance explained by each principal component as well as the cumulative variance explained. Try plotting the cumulative or sequential values using matplotlib's [`plot()`](https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html) function. Based on what you find, select a value for the number of transformed features you'll retain for the clustering part of the project. 
+- Once you've made a choice for the number of components to keep, make sure you re-fit a PCA instance to perform the decided-on transformation. <hr class="ls0"></span><span class="s0">#%% 
+# Apply PCA to the data.</span>
+<span class="s2">from </span><span class="s1">sklearn</span><span class="s3">.</span><span class="s1">decomposition </span><span class="s2">import </span><span class="s1">PCA</span>
+<span class="s2">import </span><span class="s1">matplotlib</span><span class="s3">.</span><span class="s1">pyplot </span><span class="s2">as </span><span class="s1">plt</span>
+
+<span class="s1">pca </span><span class="s3">= </span><span class="s1">PCA</span><span class="s4">()</span>
+<span class="s1">azdias_pca </span><span class="s3">= </span><span class="s1">pca</span><span class="s3">.</span><span class="s1">fit_transform</span><span class="s4">(</span><span class="s1">azdias_scaled</span><span class="s4">)</span>
+
+<hr class="ls0"><span class="s0">#%% 
+# Investigate the variance accounted for by each principal component.</span>
+<span class="s1">explained_variance_ratio </span><span class="s3">= </span><span class="s1">pca</span><span class="s3">.</span><span class="s1">explained_variance_ratio_</span>
+<span class="s1">cumulative_variance_ratio </span><span class="s3">= </span><span class="s1">explained_variance_ratio</span><span class="s3">.</span><span class="s1">cumsum</span><span class="s4">()</span>
+
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">figure</span><span class="s4">(</span><span class="s1">figsize</span><span class="s3">=</span><span class="s4">(</span><span class="s7">10</span><span class="s6">, </span><span class="s7">6</span><span class="s4">))</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">plot</span><span class="s4">(</span><span class="s1">range</span><span class="s4">(</span><span class="s7">1</span><span class="s6">, </span><span class="s1">len</span><span class="s4">(</span><span class="s1">cumulative_variance_ratio</span><span class="s4">) </span><span class="s3">+ </span><span class="s7">1</span><span class="s4">)</span><span class="s6">, </span><span class="s1">cumulative_variance_ratio</span><span class="s6">, </span><span class="s1">marker</span><span class="s3">=</span><span class="s5">'o'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">title</span><span class="s4">(</span><span class="s5">'Cumulative Explained Variance by Principal Components'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">xlabel</span><span class="s4">(</span><span class="s5">'Number of Principal Components'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">ylabel</span><span class="s4">(</span><span class="s5">'Cumulative Explained Variance'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">grid</span><span class="s4">(</span><span class="s2">True</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">show</span><span class="s4">()</span>
+
+<span class="s1">n_components </span><span class="s3">= </span><span class="s1">next</span><span class="s4">(</span><span class="s1">i </span><span class="s2">for </span><span class="s1">i</span><span class="s6">, </span><span class="s1">total_var </span><span class="s2">in </span><span class="s1">enumerate</span><span class="s4">(</span><span class="s1">cumulative_variance_ratio</span><span class="s4">) </span><span class="s2">if </span><span class="s1">total_var </span><span class="s3">&gt;= </span><span class="s7">0.90</span><span class="s4">) </span><span class="s3">+ </span><span class="s7">1</span><hr class="ls0"><span class="s0">#%% 
+# Re-apply PCA to the data while selecting for number of components to retain.</span>
+<span class="s1">pca </span><span class="s3">= </span><span class="s1">PCA</span><span class="s4">(</span><span class="s1">n_components</span><span class="s3">=</span><span class="s1">n_components</span><span class="s4">)</span>
+<span class="s1">azdias_pca_reduced </span><span class="s3">= </span><span class="s1">pca</span><span class="s3">.</span><span class="s1">fit_transform</span><span class="s4">(</span><span class="s1">azdias_scaled</span><span class="s4">)</span>
+
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Number of components selected: {</span><span class="s1">n_components</span><span class="s5">}&quot;</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Shape of the reduced data: {</span><span class="s1">azdias_pca_reduced</span><span class="s3">.</span><span class="s1">shape</span><span class="s5">}&quot;</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Discussion 2.2: Perform Dimensionality Reduction 
+ 
+(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding dimensionality reduction. How many principal components / transformed features are you retaining for the next step of the analysis?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">### Step 2.3: Interpret Principal Components 
+ 
+Now that we have our transformed principal components, it's a nice idea to check out the weight of each variable on the first few components to see if they can be interpreted in some fashion. 
+ 
+As a reminder, each principal component is a unit vector that points in the direction of highest variance (after accounting for the variance captured by earlier principal components). The further a weight is from zero, the more the principal component is in the direction of the corresponding feature. If two features have large weights of the same sign (both positive or both negative), then increases in one tend expect to be associated with increases in the other. To contrast, features with different signs can be expected to show a negative correlation: increases in one variable should result in a decrease in the other. 
+ 
+- To investigate the features, you should map each weight to their corresponding feature name, then sort the features according to weight. The most interesting features for each principal component, then, will be those at the beginning and end of the sorted list. Use the data dictionary document to help you understand these most prominent features, their relationships, and what a positive or negative value on the principal component might indicate. 
+- You should investigate and interpret feature associations from the first three principal components in this substep. To help facilitate this, you should write a function that you can call at any time to print the sorted list of feature weights, for the *i*-th principal component. This might come in handy in the next step of the project, when you interpret the tendencies of the discovered clusters. <hr class="ls0"></span><span class="s0">#%% 
+# Map weights for the first principal component to corresponding feature names</span>
+<span class="s0"># and then print the linked values, sorted by weight.</span>
+<span class="s0"># HINT: Try defining a function here or in a new cell that you can reuse in the</span>
+<span class="s0"># other cells.</span>
+
+<span class="s2">def </span><span class="s1">print_sorted_pca_weights</span><span class="s4">(</span><span class="s1">pca</span><span class="s6">, </span><span class="s1">component_index</span><span class="s6">, </span><span class="s1">feature_names</span><span class="s4">)</span><span class="s3">:</span>
+    <span class="s1">component_weights </span><span class="s3">= </span><span class="s1">pca</span><span class="s3">.</span><span class="s1">components_</span><span class="s4">[</span><span class="s1">component_index</span><span class="s4">]</span>
+    <span class="s1">weights_df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s4">({</span>
+        <span class="s5">'feature'</span><span class="s3">: </span><span class="s1">feature_names</span><span class="s6">,</span>
+        <span class="s5">'weight'</span><span class="s3">: </span><span class="s1">component_weights</span>
+    <span class="s4">})</span>
+    <span class="s1">weights_df </span><span class="s3">= </span><span class="s1">weights_df</span><span class="s3">.</span><span class="s1">sort_values</span><span class="s4">(</span><span class="s1">by</span><span class="s3">=</span><span class="s5">'weight'</span><span class="s6">, </span><span class="s1">ascending</span><span class="s3">=</span><span class="s2">False</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Principal Component {</span><span class="s1">component_index </span><span class="s3">+ </span><span class="s7">1</span><span class="s5">} Weights:&quot;</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s1">weights_df</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% 
+# Map weights for the second principal component to corresponding feature names</span>
+<span class="s0"># and then print the linked values, sorted by weight.</span>
+
+<hr class="ls0"><span class="s0">#%% 
+# Map weights for the third principal component to corresponding feature names</span>
+<span class="s0"># and then print the linked values, sorted by weight.</span>
+
+<span class="s1">feature_names </span><span class="s3">= </span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">columns</span>
+
+<span class="s1">print_sorted_pca_weights</span><span class="s4">(</span><span class="s1">pca</span><span class="s6">, </span><span class="s7">0</span><span class="s6">, </span><span class="s1">feature_names</span><span class="s4">)</span>
+<span class="s1">print_sorted_pca_weights</span><span class="s4">(</span><span class="s1">pca</span><span class="s6">, </span><span class="s7">1</span><span class="s6">, </span><span class="s1">feature_names</span><span class="s4">)</span>
+<span class="s1">print_sorted_pca_weights</span><span class="s4">(</span><span class="s1">pca</span><span class="s6">, </span><span class="s7">2</span><span class="s6">, </span><span class="s1">feature_names</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Discussion 2.3: Interpret Principal Components 
+ 
+(Double-click this cell and replace this text with your own text, reporting your observations from detailed investigation of the first few principal components generated. Can we interpret positive and negative values from them in a meaningful way?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">## Step 3: Clustering 
+ 
+### Step 3.1: Apply Clustering to General Population 
+ 
+You've assessed and cleaned the demographics data, then scaled and transformed them. Now, it's time to see how the data clusters in the principal components space. In this substep, you will apply k-means clustering to the dataset and use the average within-cluster distances from each point to their assigned cluster's centroid to decide on a number of clusters to keep. 
+ 
+- Use sklearn's [KMeans](http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html#sklearn.cluster.KMeans) class to perform k-means clustering on the PCA-transformed data. 
+- Then, compute the average difference from each point to its assigned cluster's center. **Hint**: The KMeans object's `.score()` method might be useful here, but note that in sklearn, scores tend to be defined so that larger is better. Try applying it to a small, toy dataset, or use an internet search to help your understanding. 
+- Perform the above two steps for a number of different cluster counts. You can then see how the average distance decreases with an increasing number of clusters. However, each additional cluster provides a smaller net benefit. Use this fact to select a final number of clusters in which to group the data. **Warning**: because of the large size of the dataset, it can take a long time for the algorithm to resolve. The more clusters to fit, the longer the algorithm will take. You should test for cluster counts through at least 10 clusters to get the full picture, but you shouldn't need to test for a number of clusters above about 30. 
+- Once you've selected a final number of clusters to use, re-fit a KMeans instance to perform the clustering operation. Make sure that you also obtain the cluster assignments for the general demographics data, since you'll be using them in the final Step 3.3. <hr class="ls0"></span><span class="s0">#%% 
+# Over a number of different cluster counts...</span>
+<span class="s2">from </span><span class="s1">sklearn</span><span class="s3">.</span><span class="s1">cluster </span><span class="s2">import </span><span class="s1">KMeans</span>
+<span class="s2">from </span><span class="s1">sklearn</span><span class="s3">.</span><span class="s1">metrics </span><span class="s2">import </span><span class="s1">silhouette_score</span>
+
+<span class="s1">cluster_counts </span><span class="s3">= </span><span class="s1">range</span><span class="s4">(</span><span class="s7">1</span><span class="s6">, </span><span class="s7">31</span><span class="s4">)</span>
+<span class="s1">inertia </span><span class="s3">= </span><span class="s4">[]</span>
+
+    <span class="s0"># run k-means clustering on the data and...</span>
+<span class="s2">for </span><span class="s1">k </span><span class="s2">in </span><span class="s1">cluster_counts</span><span class="s3">:</span>
+    <span class="s1">kmeans </span><span class="s3">= </span><span class="s1">KMeans</span><span class="s4">(</span><span class="s1">n_clusters</span><span class="s3">=</span><span class="s1">k</span><span class="s6">, </span><span class="s1">random_state</span><span class="s3">=</span><span class="s7">42</span><span class="s4">)</span>
+    <span class="s1">kmeans</span><span class="s3">.</span><span class="s1">fit</span><span class="s4">(</span><span class="s1">azdias_pca_reduced</span><span class="s4">)</span>
+    <span class="s1">inertia</span><span class="s3">.</span><span class="s1">append</span><span class="s4">(</span><span class="s1">kmeans</span><span class="s3">.</span><span class="s1">inertia_</span><span class="s4">)</span>
+
+    
+    <span class="s0"># compute the average within-cluster distances.</span>
+    
+    <hr class="ls0"><span class="s0">#%% 
+# Investigate the change in within-cluster distance across number of clusters.</span>
+<span class="s0"># HINT: Use matplotlib's plot function to visualize this relationship.</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">figure</span><span class="s4">(</span><span class="s1">figsize</span><span class="s3">=</span><span class="s4">(</span><span class="s7">10</span><span class="s6">, </span><span class="s7">6</span><span class="s4">))</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">plot</span><span class="s4">(</span><span class="s1">cluster_counts</span><span class="s6">, </span><span class="s1">inertia</span><span class="s6">, </span><span class="s1">marker</span><span class="s3">=</span><span class="s5">'o'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">title</span><span class="s4">(</span><span class="s5">'Elbow Method For Optimal k'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">xlabel</span><span class="s4">(</span><span class="s5">'Number of Clusters'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">ylabel</span><span class="s4">(</span><span class="s5">'Inertia'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">grid</span><span class="s4">(</span><span class="s2">True</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">show</span><span class="s4">()</span>
+
+<span class="s1">optimal_clusters </span><span class="s3">= </span><span class="s7">10</span><hr class="ls0"><span class="s0">#%% 
+# Re-fit the k-means model with the selected number of clusters and obtain</span>
+<span class="s0"># cluster predictions for the general population demographics data.</span>
+
+<span class="s1">kmeans </span><span class="s3">= </span><span class="s1">KMeans</span><span class="s4">(</span><span class="s1">n_clusters</span><span class="s3">=</span><span class="s1">optimal_clusters</span><span class="s6">, </span><span class="s1">random_state</span><span class="s3">=</span><span class="s7">42</span><span class="s4">)</span>
+<span class="s1">azdias_cluster_labels </span><span class="s3">= </span><span class="s1">kmeans</span><span class="s3">.</span><span class="s1">fit_predict</span><span class="s4">(</span><span class="s1">azdias_pca_reduced</span><span class="s4">)</span>
+
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Number of clusters selected: {</span><span class="s1">optimal_clusters</span><span class="s5">}&quot;</span><span class="s4">)</span>
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Cluster labels for the general population demographics data: {</span><span class="s1">azdias_cluster_labels</span><span class="s5">}&quot;</span><span class="s4">)</span>
+
+<hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Discussion 3.1: Apply Clustering to General Population 
+ 
+(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding clustering. Into how many clusters have you decided to segment the population?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">### Step 3.2: Apply All Steps to the Customer Data 
+ 
+Now that you have clusters and cluster centers for the general population, it's time to see how the customer data maps on to those clusters. Take care to not confuse this for re-fitting all of the models to the customer data. Instead, you're going to use the fits from the general population to clean, transform, and cluster the customer data. In the last step of the project, you will interpret how the general population fits apply to the customer data. 
+ 
+- Don't forget when loading in the customers data, that it is semicolon (`;`) delimited. 
+- Apply the same feature wrangling, selection, and engineering steps to the customer demographics using the `clean_data()` function you created earlier. (You can assume that the customer demographics data has similar meaning behind missing data patterns as the general demographics data.) 
+- Use the sklearn objects from the general demographics data, and apply their transformations to the customers data. That is, you should not be using a `.fit()` or `.fit_transform()` method to re-fit the old objects, nor should you be creating new sklearn objects! Carry the data through the feature scaling, PCA, and clustering steps, obtaining cluster assignments for all of the data in the customer demographics data. <hr class="ls0"></span><span class="s0">#%% 
+# Load in the customer demographics data.</span>
+<span class="s1">customers </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">read_csv</span><span class="s4">(</span><span class="s5">'Udacity_CUSTOMERS_Subset.csv'</span><span class="s6">, </span><span class="s1">delimiter</span><span class="s3">=</span><span class="s5">';'</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% 
+# Apply preprocessing, feature transformation, and clustering from the general</span>
+<span class="s0"># demographics onto the customer data, obtaining cluster predictions for the</span>
+<span class="s0"># customer demographics data.</span>
+
+<span class="s1">customers_cleaned </span><span class="s3">= </span><span class="s1">clean_data</span><span class="s4">(</span><span class="s1">customers</span><span class="s4">)</span>
+
+<span class="s0"># Ensure customers_cleaned has the same columns as azdias_cleaned</span>
+<span class="s1">customers_cleaned </span><span class="s3">= </span><span class="s1">customers_cleaned</span><span class="s3">.</span><span class="s1">reindex</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">columns</span><span class="s6">, </span><span class="s1">fill_value</span><span class="s3">=</span><span class="s1">np</span><span class="s3">.</span><span class="s1">nan</span><span class="s4">)</span>
+
+<span class="s1">customers_imputed </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s4">(</span><span class="s1">imputer</span><span class="s3">.</span><span class="s1">transform</span><span class="s4">(</span><span class="s1">customers_cleaned</span><span class="s4">)</span><span class="s6">, </span><span class="s1">columns</span><span class="s3">=</span><span class="s1">customers_cleaned</span><span class="s3">.</span><span class="s1">columns</span><span class="s4">)</span>
+<span class="s1">customers_scaled </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s4">(</span><span class="s1">scaler</span><span class="s3">.</span><span class="s1">transform</span><span class="s4">(</span><span class="s1">customers_imputed</span><span class="s4">)</span><span class="s6">, </span><span class="s1">columns</span><span class="s3">=</span><span class="s1">customers_imputed</span><span class="s3">.</span><span class="s1">columns</span><span class="s4">)</span>
+<span class="s1">customers_pca_reduced </span><span class="s3">= </span><span class="s1">pca</span><span class="s3">.</span><span class="s1">transform</span><span class="s4">(</span><span class="s1">customers_scaled</span><span class="s4">)</span>
+<span class="s1">customers_cluster_labels </span><span class="s3">= </span><span class="s1">kmeans</span><span class="s3">.</span><span class="s1">predict</span><span class="s4">(</span><span class="s1">customers_pca_reduced</span><span class="s4">)</span>
+
+<span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Cluster labels for the customer demographics data: {</span><span class="s1">customers_cluster_labels</span><span class="s5">}&quot;</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Step 3.3: Compare Customer Data to Demographics Data 
+ 
+At this point, you have clustered data based on demographics of the general population of Germany, and seen how the customer data for a mail-order sales company maps onto those demographic clusters. In this final substep, you will compare the two cluster distributions to see where the strongest customer base for the company is. 
+ 
+Consider the proportion of persons in each cluster for the general population, and the proportions for the customers. If we think the company's customer base to be universal, then the cluster assignment proportions should be fairly similar between the two. If there are only particular segments of the population that are interested in the company's products, then we should see a mismatch from one to the other. If there is a higher proportion of persons in a cluster for the customer data compared to the general population (e.g. 5% of persons are assigned to a cluster for the general population, but 15% of the customer data is closest to that cluster's centroid) then that suggests the people in that cluster to be a target audience for the company. On the other hand, the proportion of the data in a cluster being larger in the general population than the customer data (e.g. only 2% of customers closest to a population centroid that captures 6% of the data) suggests that group of persons to be outside of the target demographics. 
+ 
+Take a look at the following points in this step: 
+ 
+- Compute the proportion of data points in each cluster for the general population and the customer data. Visualizations will be useful here: both for the individual dataset proportions, but also to visualize the ratios in cluster representation between groups. Seaborn's [`countplot()`](https://seaborn.pydata.org/generated/seaborn.countplot.html) or [`barplot()`](https://seaborn.pydata.org/generated/seaborn.barplot.html) function could be handy. 
+  - Recall the analysis you performed in step 1.1.3 of the project, where you separated out certain data points from the dataset if they had more than a specified threshold of missing values. If you found that this group was qualitatively different from the main bulk of the data, you should treat this as an additional data cluster in this analysis. Make sure that you account for the number of data points in this subset, for both the general population and customer datasets, when making your computations! 
+- Which cluster or clusters are overrepresented in the customer dataset compared to the general population? Select at least one such cluster and infer what kind of people might be represented by that cluster. Use the principal component interpretations from step 2.3 or look at additional components to help you make this inference. Alternatively, you can use the `.inverse_transform()` method of the PCA and StandardScaler objects to transform centroids back to the original data space and interpret the retrieved values directly. 
+- Perform a similar investigation for the underrepresented clusters. Which cluster or clusters are underrepresented in the customer dataset compared to the general population, and what kinds of people are typified by these clusters? <hr class="ls0"></span><span class="s0">#%% 
+# Compare the proportion of data in each cluster for the customer data to the</span>
+<span class="s0"># proportion of data in each cluster for the general population.</span>
+<span class="s2">import </span><span class="s1">seaborn </span><span class="s2">as </span><span class="s1">sns</span>
+<span class="s2">import </span><span class="s1">matplotlib</span><span class="s3">.</span><span class="s1">pyplot </span><span class="s2">as </span><span class="s1">plt</span>
+
+<span class="s1">general_population_proportions </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">Series</span><span class="s4">(</span><span class="s1">azdias_cluster_labels</span><span class="s4">)</span><span class="s3">.</span><span class="s1">value_counts</span><span class="s4">(</span><span class="s1">normalize</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span><span class="s3">.</span><span class="s1">sort_index</span><span class="s4">()</span>
+<span class="s1">customers_proportions </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">Series</span><span class="s4">(</span><span class="s1">customers_cluster_labels</span><span class="s4">)</span><span class="s3">.</span><span class="s1">value_counts</span><span class="s4">(</span><span class="s1">normalize</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span><span class="s3">.</span><span class="s1">sort_index</span><span class="s4">()</span>
+
+<span class="s1">proportions_df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s4">({</span>
+    <span class="s5">'General Population'</span><span class="s3">: </span><span class="s1">general_population_proportions</span><span class="s6">,</span>
+    <span class="s5">'Customers'</span><span class="s3">: </span><span class="s1">customers_proportions</span>
+<span class="s4">})</span>
+
+<span class="s0"># Plot the proportions</span>
+<span class="s1">proportions_df</span><span class="s3">.</span><span class="s1">plot</span><span class="s4">(</span><span class="s1">kind</span><span class="s3">=</span><span class="s5">'bar'</span><span class="s6">, </span><span class="s1">figsize</span><span class="s3">=</span><span class="s4">(</span><span class="s7">12</span><span class="s6">, </span><span class="s7">6</span><span class="s4">))</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">title</span><span class="s4">(</span><span class="s5">'Proportion of Data Points in Each Cluster'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">xlabel</span><span class="s4">(</span><span class="s5">'Cluster'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">ylabel</span><span class="s4">(</span><span class="s5">'Proportion'</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">grid</span><span class="s4">(</span><span class="s2">True</span><span class="s4">)</span>
+<span class="s1">plt</span><span class="s3">.</span><span class="s1">show</span><span class="s4">()</span><hr class="ls0"><span class="s0">#%% 
+# What kinds of people are part of a cluster that is overrepresented in the</span>
+<span class="s0"># customer data compared to the general population?</span>
+<span class="s1">overrepresented_clusters </span><span class="s3">= </span><span class="s1">proportions_df</span><span class="s4">[</span><span class="s1">proportions_df</span><span class="s4">[</span><span class="s5">'Customers'</span><span class="s4">] </span><span class="s3">&gt; </span><span class="s1">proportions_df</span><span class="s4">[</span><span class="s5">'General Population'</span><span class="s4">]]</span><span class="s3">.</span><span class="s1">index</span>
+
+<span class="s2">def </span><span class="s1">interpret_cluster</span><span class="s4">(</span><span class="s1">cluster_index</span><span class="s6">, </span><span class="s1">pca</span><span class="s6">, </span><span class="s1">feature_names</span><span class="s4">)</span><span class="s3">:</span>
+    <span class="s1">centroid </span><span class="s3">= </span><span class="s1">kmeans</span><span class="s3">.</span><span class="s1">cluster_centers_</span><span class="s4">[</span><span class="s1">cluster_index</span><span class="s4">]</span>
+    <span class="s1">original_space_centroid </span><span class="s3">= </span><span class="s1">scaler</span><span class="s3">.</span><span class="s1">inverse_transform</span><span class="s4">(</span><span class="s1">pca</span><span class="s3">.</span><span class="s1">inverse_transform</span><span class="s4">(</span><span class="s1">centroid</span><span class="s3">.</span><span class="s1">reshape</span><span class="s4">(</span><span class="s7">1</span><span class="s6">, </span><span class="s3">-</span><span class="s7">1</span><span class="s4">)))</span>
+    <span class="s1">centroid_df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s4">({</span>
+        <span class="s5">'feature'</span><span class="s3">: </span><span class="s1">feature_names</span><span class="s6">,</span>
+        <span class="s5">'value'</span><span class="s3">: </span><span class="s1">original_space_centroid</span><span class="s3">.</span><span class="s1">flatten</span><span class="s4">()</span>
+    <span class="s4">})</span>
+    <span class="s2">return </span><span class="s1">centroid_df</span><span class="s3">.</span><span class="s1">sort_values</span><span class="s4">(</span><span class="s1">by</span><span class="s3">=</span><span class="s5">'value'</span><span class="s6">, </span><span class="s1">ascending</span><span class="s3">=</span><span class="s2">False</span><span class="s4">)</span>
+
+<span class="s2">for </span><span class="s1">cluster </span><span class="s2">in </span><span class="s1">overrepresented_clusters</span><span class="s3">:</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Cluster {</span><span class="s1">cluster</span><span class="s5">} (Overrepresented):&quot;</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s1">interpret_cluster</span><span class="s4">(</span><span class="s1">cluster</span><span class="s6">, </span><span class="s1">pca</span><span class="s6">, </span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">columns</span><span class="s4">))</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s5">&quot;\n&quot;</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% 
+# What kinds of people are part of a cluster that is underrepresented in the</span>
+<span class="s0"># customer data compared to the general population?</span>
+
+<span class="s1">underrepresented_clusters </span><span class="s3">= </span><span class="s1">proportions_df</span><span class="s4">[</span><span class="s1">proportions_df</span><span class="s4">[</span><span class="s5">'Customers'</span><span class="s4">] </span><span class="s3">&lt; </span><span class="s1">proportions_df</span><span class="s4">[</span><span class="s5">'General Population'</span><span class="s4">]]</span><span class="s3">.</span><span class="s1">index</span>
+
+<span class="s2">for </span><span class="s1">cluster </span><span class="s2">in </span><span class="s1">underrepresented_clusters</span><span class="s3">:</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Cluster {</span><span class="s1">cluster</span><span class="s5">} (Underrepresented):&quot;</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s1">interpret_cluster</span><span class="s4">(</span><span class="s1">cluster</span><span class="s6">, </span><span class="s1">pca</span><span class="s6">, </span><span class="s1">azdias_cleaned</span><span class="s3">.</span><span class="s1">columns</span><span class="s4">))</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s5">&quot;\n&quot;</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
+</span><span class="s1">### Discussion 3.3: Compare Customer Data to Demographics Data 
+ 
+(Double-click this cell and replace this text with your own text, reporting findings and conclusions from the clustering analysis. Can we describe segments of the population that are relatively popular with the mail-order company, or relatively unpopular with the company?) <hr class="ls0"></span><span class="s0">#%% md 
+</span><span class="s1">&gt; Congratulations on making it this far in the project! Before you finish, make sure to check through the entire notebook from top to bottom to make sure that your analysis follows a logical flow and all of your findings are documented in **Discussion** cells. Once you've checked over all of your work, you should export the notebook as an HTML document to submit for evaluation. You can do this from the menu, navigating to **File -&gt; Download as -&gt; HTML (.html)**. You will submit both that document and this notebook for your project submission. <hr class="ls0"></span><span class="s0">#%% 
+</span></pre>
+</body>
+</html>
