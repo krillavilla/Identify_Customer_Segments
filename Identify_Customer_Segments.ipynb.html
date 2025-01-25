@@ -132,7 +132,7 @@ For the remaining features, are there any patterns in which columns have, or sha
 <span class="s1">azdias_cleaned </span><span class="s3">= </span><span class="s1">azdias</span><span class="s3">.</span><span class="s1">drop</span><span class="s4">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">high_missing_cols</span><span class="s3">.</span><span class="s1">index</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">#### Discussion 1.1.2: Assess Missing Data in Each Column 
  
-(Double click this cell and replace this text with your own text, reporting your observations regarding the amount of missing data in each column. Are there any patterns in missing values? Which columns were removed from the dataset?) <hr class="ls0"></span><span class="s0">#%% md 
+I looked at our data to see how much information was missing in each column. Some columns had a lot of missing information, so we decided to remove those columns. This helps me to focus on the columns with more complete information. In addition to the columns with a lot of missing information, I also found that some columns had a lot of missing information. I decided to remove those columns as well. This helps me focus on the columns with more complete information. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">#### Step 1.1.3: Assess Missing Data in Each Row 
  
 Now, you'll perform a similar assessment for the rows of the dataset. How much data is missing in each row? As with the columns, you should see some groups of points that have a very different numbers of missing values. Divide the data into two subsets: one for data points that are above some threshold for missing values, and a second subset for points below that threshold. 
@@ -176,7 +176,8 @@ Depending on what you observe in your comparison, this will have implications on
     <span class="s1">plt</span><span class="s3">.</span><span class="s1">show</span><span class="s4">()</span><hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">#### Discussion 1.1.3: Assess Missing Data in Each Row 
  
-(Double-click this cell and replace this text with your own text, reporting your observations regarding missing data in rows. Are the data with lots of missing values are qualitatively different from data with few or no missing values?) <hr class="ls0"></span><span class="s0">#%% md 
+Next, I checked how much information was missing in each row. I divided the data into two groups: rows with a lot of missing information and rows with only a little missing information. I compared these groups to see if they were different. If they were similar, I 
+ could remove the rows with a lot of missing information without losing important details. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">### Step 1.2: Select and Re-Encode Features 
  
 Checking for missing data isn't the only way in which you can prepare a dataset for analysis. Since the unsupervised learning techniques to be used will only work on data that is encoded numerically, you need to make a few encoding changes or additional assumptions to be able to make progress. In addition, while almost all of the values in the dataset are encoded using numbers, not all of them represent numeric values. Check the third column of the feature summary (`feat_info`) for a summary of types of measurement. 
@@ -227,8 +228,7 @@ For categorical data, you would ordinarily need to encode the levels as dummy va
 <span class="s1">azdias </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">get_dummies</span><span class="s4">(</span><span class="s1">azdias</span><span class="s6">, </span><span class="s1">columns</span><span class="s3">=</span><span class="s1">multi_level_categorical</span><span class="s6">, </span><span class="s1">drop_first</span><span class="s3">=</span><span class="s2">True</span><span class="s4">)</span>
 <hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">#### Discussion 1.2.1: Re-Encode Categorical Features 
- 
-(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding categorical features. Which ones did you keep, which did you drop, and what engineering steps did you perform?) <hr class="ls0"></span><span class="s0">#%% md 
+I found some columns with categories (like &quot;yes&quot; or &quot;no&quot;). For columns with only two categories, I kept them as they were. For columns with more than two categories, I either changed them into numbers or removed them if they were too complicated. This makes it easier for my computer to understand and work with the data. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">#### Step 1.2.2: Engineer Mixed-Type Features 
  
 There are a handful of features that are marked as &quot;mixed&quot; in the feature summary that require special treatment in order to be included in the analysis. There are two in particular that deserve attention; the handling of the rest are up to your own choices: 
@@ -276,7 +276,7 @@ Be sure to check `Data_Dictionary.md` for the details needed to finish these tas
 <hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">#### Discussion 1.2.2: Engineer Mixed-Type Features 
  
-(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding mixed-value features. Which ones did you keep, which did you drop, and what engineering steps did you perform?) <hr class="ls0"></span><span class="s0">#%% md 
+I found some columns that combined different types of information. For example, one column had information about the decade someone was born and their lifestyle. I created new columns to separate these details, making the data easier to analyze. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">#### Step 1.2.3: Complete Feature Selection 
  
 In order to finish this step up, you need to make sure that your data frame now only has the columns that you want to keep. To summarize, the dataframe should consist of the following: 
@@ -394,8 +394,7 @@ Before we apply dimensionality reduction techniques to the data, we need to perf
 
 <hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">### Discussion 2.1: Apply Feature Scaling 
- 
-(Double-click this cell and replace this text with your own text, reporting your decisions regarding feature scaling.) <hr class="ls0"></span><span class="s0">#%% md 
+I made sure all my data was on the same scale. This means I adjusted the numbers so they were easier to compare. For example, if one column had values from 0 to 100 and another had values from 0 to 1, I scaled them so they were both in a similar range. This helps my computer understand the data better. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">### Step 2.2: Perform Dimensionality Reduction 
  
 On your scaled data, you are now ready to apply dimensionality reduction techniques. 
@@ -432,7 +431,8 @@ On your scaled data, you are now ready to apply dimensionality reduction techniq
 <span class="s1">print</span><span class="s4">(</span><span class="s5">f&quot;Shape of the reduced data: {</span><span class="s1">azdias_pca_reduced</span><span class="s3">.</span><span class="s1">shape</span><span class="s5">}&quot;</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">### Discussion 2.2: Perform Dimensionality Reduction 
  
-(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding dimensionality reduction. How many principal components / transformed features are you retaining for the next step of the analysis?) <hr class="ls0"></span><span class="s0">#%% md 
+ 
+I used a technique called PCA to reduce the number of columns in my data. This helps me focus on the most important information. I looked at how much each new column (called a principal component) explained the data. I decided to keep enough components to explain 90% of the data's variability. This makes my analysis simpler and faster. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">### Step 2.3: Interpret Principal Components 
  
 Now that we have our transformed principal components, it's a nice idea to check out the weight of each variable on the first few components to see if they can be interpreted in some fashion. 
@@ -468,8 +468,7 @@ As a reminder, each principal component is a unit vector that points in the dire
 <span class="s1">print_sorted_pca_weights</span><span class="s4">(</span><span class="s1">pca</span><span class="s6">, </span><span class="s7">1</span><span class="s6">, </span><span class="s1">feature_names</span><span class="s4">)</span>
 <span class="s1">print_sorted_pca_weights</span><span class="s4">(</span><span class="s1">pca</span><span class="s6">, </span><span class="s7">2</span><span class="s6">, </span><span class="s1">feature_names</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">### Discussion 2.3: Interpret Principal Components 
- 
-(Double-click this cell and replace this text with your own text, reporting your observations from detailed investigation of the first few principal components generated. Can we interpret positive and negative values from them in a meaningful way?) <hr class="ls0"></span><span class="s0">#%% md 
+I checked the new columns created by PCA to see which original columns were most important. This helps me understand what each principal component represents. For example, if a principal component has high values for age and income, it might represent a group of people with similar age and income levels. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">## Step 3: Clustering 
  
 ### Step 3.1: Apply Clustering to General Population 
@@ -520,7 +519,7 @@ You've assessed and cleaned the demographics data, then scaled and transformed t
 <hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">### Discussion 3.1: Apply Clustering to General Population 
  
-(Double-click this cell and replace this text with your own text, reporting your findings and decisions regarding clustering. Into how many clusters have you decided to segment the population?) <hr class="ls0"></span><span class="s0">#%% md 
+I grouped my data into clusters using a method called k-means clustering. I tried different numbers of clusters and found that 10 clusters worked best. This means I divided the general population into 10 groups based on their similarities. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">### Step 3.2: Apply All Steps to the Customer Data 
  
 Now that you have clusters and cluster centers for the general population, it's time to see how the customer data maps on to those clusters. Take care to not confuse this for re-fitting all of the models to the customer data. Instead, you're going to use the fits from the general population to clean, transform, and cluster the customer data. In the last step of the project, you will interpret how the general population fits apply to the customer data. 
@@ -605,7 +604,7 @@ Take a look at the following points in this step:
     <span class="s1">print</span><span class="s4">(</span><span class="s5">&quot;\n&quot;</span><span class="s4">)</span><hr class="ls0"><span class="s0">#%% md 
 </span><span class="s1">### Discussion 3.3: Compare Customer Data to Demographics Data 
  
-(Double-click this cell and replace this text with your own text, reporting findings and conclusions from the clustering analysis. Can we describe segments of the population that are relatively popular with the mail-order company, or relatively unpopular with the company?) <hr class="ls0"></span><span class="s0">#%% md 
+Finally, I compared the clusters from the general population to the customer data. I looked at which clusters had more customers than the general population and which had fewer. This helps me understand which groups of people are more likely to be customers and which are not. For example, if a cluster has more customers, it means that group is more interested in the company's products. <hr class="ls0"></span><span class="s0">#%% md 
 </span><span class="s1">&gt; Congratulations on making it this far in the project! Before you finish, make sure to check through the entire notebook from top to bottom to make sure that your analysis follows a logical flow and all of your findings are documented in **Discussion** cells. Once you've checked over all of your work, you should export the notebook as an HTML document to submit for evaluation. You can do this from the menu, navigating to **File -&gt; Download as -&gt; HTML (.html)**. You will submit both that document and this notebook for your project submission. <hr class="ls0"></span><span class="s0">#%% 
 </span></pre>
 </body>
